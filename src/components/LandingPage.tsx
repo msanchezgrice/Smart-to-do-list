@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LandingPage: React.FC = () => {
   const { signIn, user, signOut } = useAuth();
+
+  useEffect(() => {
+    // If user is authenticated and we're not already at /app, redirect to /app
+    if (user && window.location.pathname !== '/app') {
+      window.location.href = '/app';
+    }
+  }, [user]);
 
   const handleSignIn = async () => {
     try {
