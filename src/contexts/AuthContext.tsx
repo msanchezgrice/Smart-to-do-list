@@ -17,14 +17,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
+    // Check for active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for changes on auth state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -43,7 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (provider: 'github' | 'email', credentials?: { email: string; password: string }) => {
     if (provider === 'github') {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github'
+        provider: 'github',
+        options: {
+          redirectTo: window.location.origin
+        }
       });
       if (error) throw error;
     } else if (provider === 'email' && credentials) {
