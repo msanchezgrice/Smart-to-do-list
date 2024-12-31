@@ -6,7 +6,7 @@ import { Task } from './types/task';
 import { getTasks, createTask, updateTask, deleteTask } from './services/tasks';
 import { TaskRecommendations } from './components/TaskRecommendations';
 
-function App() {
+function TaskView() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -76,10 +76,6 @@ function App() {
       console.error('Error updating task:', error);
     }
   };
-
-  if (!user) {
-    return <LandingPage />;
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -166,6 +162,24 @@ function App() {
       )}
     </div>
   );
+}
+
+function App() {
+  const { user } = useAuth();
+  const path = window.location.pathname;
+
+  // If user is not authenticated, show landing page
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  // If user is authenticated and at /app, show task view
+  if (path === '/app') {
+    return <TaskView />;
+  }
+
+  // If user is authenticated but at root, show landing page (which will show logged-in state)
+  return <LandingPage />;
 }
 
 export default App;

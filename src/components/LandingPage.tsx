@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LandingPage: React.FC = () => {
-  const { signIn } = useAuth();
+  const { signIn, user, signOut } = useAuth();
 
   const handleSignIn = async () => {
     try {
@@ -11,6 +11,34 @@ export const LandingPage: React.FC = () => {
       console.error('Error signing in:', error);
     }
   };
+
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="container mx-auto px-4 pt-20 pb-16">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Welcome back, {user.email}!
+            </h1>
+            <div className="space-y-4">
+              <button
+                onClick={() => window.location.href = '/app'}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors mr-4"
+              >
+                Go to My Tasks
+              </button>
+              <button
+                onClick={() => signOut()}
+                className="bg-gray-200 text-gray-700 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
