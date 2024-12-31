@@ -4,6 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 export const LandingPage: React.FC = () => {
   const { signIn } = useAuth();
 
+  const handleSignIn = async () => {
+    try {
+      await signIn('github');
+    } catch (error) {
+      console.error('Error signing in:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Hero Section */}
@@ -16,10 +24,10 @@ export const LandingPage: React.FC = () => {
             Transform your tasks with AI-powered recommendations. Get personalized suggestions and break down complex goals into actionable steps.
           </p>
           <button
-            onClick={() => signIn()}
+            onClick={handleSignIn}
             className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
           >
-            Get Started Free
+            Sign in with GitHub
           </button>
         </div>
       </div>
