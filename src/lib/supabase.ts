@@ -12,7 +12,7 @@ export const supabase = createClient(
       autoRefreshToken: true,
       detectSessionInUrl: true,
       persistSession: true,
-      storage: window.localStorage
+      storage: localStorage
     }
   }
 ); 
