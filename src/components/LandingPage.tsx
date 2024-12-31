@@ -1,23 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Navigation } from './Navigation';
 
 export const LandingPage: React.FC = () => {
-  const { signIn, user, signOut } = useAuth();
-  const [isSigningIn, setIsSigningIn] = useState(false);
-
-  const handleSignIn = async () => {
-    try {
-      setIsSigningIn(true);
-      await signIn('github');
-    } catch (error) {
-      console.error('Error signing in:', error);
-      setIsSigningIn(false);
-    }
-  };
+  const { user } = useAuth();
 
   if (user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <Navigation />
         <div className="container mx-auto px-4 pt-20 pb-16">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -30,15 +21,6 @@ export const LandingPage: React.FC = () => {
               >
                 Go to My Tasks
               </button>
-              <button
-                onClick={() => {
-                  signOut();
-                  window.location.replace('/');
-                }}
-                className="bg-gray-200 text-gray-700 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -48,6 +30,7 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <Navigation />
       {/* Hero Section */}
       <div className="container mx-auto px-4 pt-20 pb-16">
         <div className="text-center">
@@ -57,13 +40,6 @@ export const LandingPage: React.FC = () => {
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Transform your tasks with AI-powered recommendations. Get personalized suggestions and break down complex goals into actionable steps.
           </p>
-          <button
-            onClick={handleSignIn}
-            disabled={isSigningIn}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSigningIn ? 'Signing in...' : 'Sign in with GitHub'}
-          </button>
         </div>
       </div>
 
