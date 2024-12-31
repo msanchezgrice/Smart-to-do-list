@@ -166,19 +166,43 @@ function TaskView() {
 
 function App() {
   const { user } = useAuth();
-  const path = window.location.pathname;
+  const [isLoading, setIsLoading] = useState(true);
 
-  // If user is not authenticated, show landing page
-  if (!user) {
-    return <LandingPage />;
+  useEffect(() => {
+    // Check if we're at the callback URL
+    const isCallback = window.location.pathname.includes('/auth/callback');
+    if (isCallback) {
+      // Don't do anything during the callback
+      return;
+    }
+
+    // If user is authenticated and not at /app, redirect to /app
+    if (user && window.location.pathname !== '/app') {
+      window.location.replace('/app');
+    }
+    
+    // If user is not authenticated and at /app, redirect to root
+    if (!user && window.location.pathname === '/app') {
+      window.location.replace('/');
+    }
+
+    setIsLoading(false);
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
-  // If user is authenticated and at /app, show task view
-  if (path === '/app') {
+  // Show TaskView only if user is authenticated and at /app
+  if (user && window.location.pathname === '/app') {
     return <TaskView />;
   }
 
-  // If user is authenticated but at root, show landing page (which will show logged-in state)
+  // Otherwise show LandingPage
   return <LandingPage />;
 }
 

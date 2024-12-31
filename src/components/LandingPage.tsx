@@ -1,15 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LandingPage: React.FC = () => {
   const { signIn, user, signOut } = useAuth();
-
-  useEffect(() => {
-    // If user is authenticated and we're not already at /app, redirect to /app
-    if (user && window.location.pathname !== '/app') {
-      window.location.href = '/app';
-    }
-  }, [user]);
 
   const handleSignIn = async () => {
     try {
@@ -29,13 +22,16 @@ export const LandingPage: React.FC = () => {
             </h1>
             <div className="space-y-4">
               <button
-                onClick={() => window.location.href = '/app'}
+                onClick={() => window.location.replace('/app')}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors mr-4"
               >
                 Go to My Tasks
               </button>
               <button
-                onClick={() => signOut()}
+                onClick={() => {
+                  signOut();
+                  window.location.replace('/');
+                }}
                 className="bg-gray-200 text-gray-700 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-300 transition-colors"
               >
                 Sign Out
