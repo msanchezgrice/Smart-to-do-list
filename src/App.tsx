@@ -171,14 +171,13 @@ function App() {
   useEffect(() => {
     const handleNavigation = async () => {
       // Check if we're at the callback URL
-      const isCallback = window.location.pathname.includes('/callback');
+      const isCallback = window.location.pathname.includes('/auth/callback');
       if (isCallback) {
-        setIsLoading(false);
+        // Wait for the auth state to be processed
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        window.location.replace('/app');
         return;
       }
-
-      // Wait a bit to ensure auth state is settled
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // If user is authenticated and not at /app, redirect to /app
       if (user && window.location.pathname !== '/app') {
