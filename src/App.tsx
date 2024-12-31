@@ -169,24 +169,33 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we're at the callback URL
-    const isCallback = window.location.pathname.includes('/auth/callback');
-    if (isCallback) {
-      // Don't do anything during the callback
-      return;
-    }
+    const handleNavigation = async () => {
+      // Check if we're at the callback URL
+      const isCallback = window.location.pathname.includes('/callback');
+      if (isCallback) {
+        setIsLoading(false);
+        return;
+      }
 
-    // If user is authenticated and not at /app, redirect to /app
-    if (user && window.location.pathname !== '/app') {
-      window.location.replace('/app');
-    }
-    
-    // If user is not authenticated and at /app, redirect to root
-    if (!user && window.location.pathname === '/app') {
-      window.location.replace('/');
-    }
+      // Wait a bit to ensure auth state is settled
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-    setIsLoading(false);
+      // If user is authenticated and not at /app, redirect to /app
+      if (user && window.location.pathname !== '/app') {
+        window.location.replace('/app');
+        return;
+      }
+      
+      // If user is not authenticated and at /app, redirect to root
+      if (!user && window.location.pathname === '/app') {
+        window.location.replace('/');
+        return;
+      }
+
+      setIsLoading(false);
+    };
+
+    handleNavigation();
   }, [user]);
 
   if (isLoading) {

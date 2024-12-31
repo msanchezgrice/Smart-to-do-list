@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LandingPage: React.FC = () => {
   const { signIn, user, signOut } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleSignIn = async () => {
     try {
+      setIsSigningIn(true);
       await signIn('github');
     } catch (error) {
       console.error('Error signing in:', error);
+      setIsSigningIn(false);
     }
   };
 
@@ -56,9 +59,10 @@ export const LandingPage: React.FC = () => {
           </p>
           <button
             onClick={handleSignIn}
-            className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+            disabled={isSigningIn}
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign in with GitHub
+            {isSigningIn ? 'Signing in...' : 'Sign in with GitHub'}
           </button>
         </div>
       </div>
