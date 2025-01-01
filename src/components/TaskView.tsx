@@ -1,114 +1,188 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task } from '../types/task';
-import { TaskRecommendations } from './TaskRecommendations';
+import { Settings, AIModel } from './Settings';
+import { FiSettings } from 'react-icons/fi';
 
 export function TaskView() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const savedTasks = localStorage.getItem('tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
+  const [newTask, setNewTask] = useState('');
+  const [showQuestion, setShowQuestion] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [aiModel, setAIModel] = useState<AIModel>(() => {
+    const savedModel = localStorage.getItem('aiModel');
+    return (savedModel as AIModel) || 'gpt-4';
+  });
 
-  const addTask = () => {
-    if (!newTaskTitle.trim()) return;
-    const newTask: Task = {
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('aiModel', aiModel);
+  }, [aiModel]);
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.trim()) return;
+
+    const task: Task = {
       id: Date.now().toString(),
-      title: newTaskTitle,
+      title: newTask,
       completed: false,
-      userId: 'demo-user',
       createdAt: new Date(),
     };
-    setTasks([newTask, ...tasks]);
-    setNewTaskTitle('');
+
+    setTasks([...tasks, task]);
+    setNewTask('');
+
+    // Automatically get AI recommendations
+    try {
+      const response = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task: newTask, model: aiModel }),
+      });
+      const data = await response.json();
+      setRecommendations(data.recommendations);
+    } catch (error) {
+      console.error('Error getting recommendations:', error);
+    }
   };
 
-  const toggleTask = (taskId: string) => {
-    setTasks(tasks.map(t => 
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    ));
+  const handleAskQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!question.trim()) return;
+
+    try {
+      const response = await fetch('/api/ask', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          question,
+          tasks: tasks.map(t => t.title),
+          model: aiModel
+        }),
+      });
+      const data = await response.json();
+      setAnswer(data.answer);
+      setQuestion('');
+      setShowQuestion(false);
+    } catch (error) {
+      console.error('Error asking question:', error);
+    }
   };
 
-  const removeTask = (taskId: string) => {
-    setTasks(tasks.filter(t => t.id !== taskId));
-  };
-
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(tasks.map(t => 
-      t.id === taskId ? { ...t, ...updates } : t
+  const toggleTaskCompletion = (taskId: string) => {
+    setTasks(tasks.map(task =>
+      task.id === taskId ? { ...task, completed: !task.completed } : task
     ));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Smart Todo List</h1>
-        </div>
-      </nav>
+    <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Smart To-Do List</h1>
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="p-2 hover:bg-gray-100 rounded-full"
+        >
+          <FiSettings className="w-6 h-6" />
+        </button>
+      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex gap-4">
+      <form onSubmit={handleAddTask} className="mb-6">
+        <input
+          type="text"
+          value={newTask}
+          onChange={(e) => setNewTask(e.target.value)}
+          placeholder="Add a new task..."
+          className="w-full p-2 border border-gray-300 rounded-md mb-2"
+        />
+      </form>
+
+      <div className="space-y-4 mb-6">
+        {tasks.map(task => (
+          <div
+            key={task.id}
+            className="flex items-center p-3 bg-white rounded-lg shadow-sm"
+          >
             <input
-              type="text"
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="Add a new task..."
-              className="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => toggleTaskCompletion(task.id)}
+              className="mr-3"
             />
-            <button
-              onClick={addTask}
-              disabled={!newTaskTitle.trim()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              Add Task
-            </button>
+            <span className={task.completed ? 'line-through text-gray-500' : ''}>
+              {task.title}
+            </span>
           </div>
-        </div>
+        ))}
+      </div>
 
-        <div className="space-y-4">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className="bg-white rounded-lg shadow-sm p-4"
+      <div className="space-y-4">
+        {recommendations.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowRecommendations(!showRecommendations)}
+              className="text-blue-600 hover:text-blue-700"
             >
-              <div className="flex items-start gap-4">
-                <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={() => toggleTask(task.id)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <h3 className={`text-lg ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                    {task.title}
-                  </h3>
-                  {task.description && (
-                    <p className="text-gray-600 mt-1">{task.description}</p>
-                  )}
-                  <div className="mt-2 space-x-2">
-                    <button
-                      onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                      className="text-sm text-blue-600 hover:text-blue-700"
-                    >
-                      {expandedTask === task.id ? 'Hide AI Help' : 'Get AI Help'}
-                    </button>
-                    <button
-                      onClick={() => removeTask(task.id)}
-                      className="text-sm text-red-600 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
+              {recommendations.length} recommendations
+            </button>
+            {showRecommendations && (
+              <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+                <ul className="list-disc pl-5 space-y-2">
+                  {recommendations.map((rec, index) => (
+                    <li key={index}>{rec}</li>
+                  ))}
+                </ul>
               </div>
-              {expandedTask === task.id && (
-                <div className="mt-4 pl-8">
-                  <TaskRecommendations task={task} onUpdateTask={updateTask} />
-                </div>
-              )}
+            )}
+          </div>
+        )}
+
+        <div>
+          <button
+            onClick={() => setShowQuestion(!showQuestion)}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            Ask Question
+          </button>
+          {showQuestion && (
+            <form onSubmit={handleAskQuestion} className="mt-2">
+              <input
+                type="text"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Ask a question about your tasks..."
+                className="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </form>
+          )}
+          {answer && (
+            <div className="mt-2 p-4 bg-gray-50 rounded-lg">
+              {answer}
             </div>
-          ))}
+          )}
         </div>
       </div>
+
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentModel={aiModel}
+        onModelChange={setAIModel}
+      />
     </div>
   );
 } 
