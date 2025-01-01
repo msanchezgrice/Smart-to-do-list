@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Task } from '../types/task';
+import { TaskRecommendations } from './TaskRecommendations';
 
 export function TaskView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
   const addTask = () => {
     if (!newTaskTitle.trim()) return;
@@ -26,6 +28,12 @@ export function TaskView() {
 
   const removeTask = (taskId: string) => {
     setTasks(tasks.filter(t => t.id !== taskId));
+  };
+
+  const updateTask = (taskId: string, updates: Partial<Task>) => {
+    setTasks(tasks.map(t => 
+      t.id === taskId ? { ...t, ...updates } : t
+    ));
   };
 
   return (
@@ -76,7 +84,13 @@ export function TaskView() {
                   {task.description && (
                     <p className="text-gray-600 mt-1">{task.description}</p>
                   )}
-                  <div className="mt-2">
+                  <div className="mt-2 space-x-2">
+                    <button
+                      onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      {expandedTask === task.id ? 'Hide AI Help' : 'Get AI Help'}
+                    </button>
                     <button
                       onClick={() => removeTask(task.id)}
                       className="text-sm text-red-600 hover:text-red-700"
@@ -86,6 +100,11 @@ export function TaskView() {
                   </div>
                 </div>
               </div>
+              {expandedTask === task.id && (
+                <div className="mt-4 pl-8">
+                  <TaskRecommendations task={task} onUpdateTask={updateTask} />
+                </div>
+              )}
             </div>
           ))}
         </div>
