@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
+import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
@@ -18,7 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error getting session:', error);
+      }
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -27,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', { event: _event, user: session?.user?.email });
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -35,35 +39,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    console.log('Attempting sign up for:', email);
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
+    
+    console.log('Sign up successful:', data);
   };
 
   const signIn = async (provider: 'github' | 'email', credentials?: { email: string; password: string }) => {
-    if (provider === 'github') {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: false
+    try {
+      if (provider === 'github') {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'github',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
+        if (error) throw error;
+      } else if (provider === 'email' && credentials) {
+        console.log('Attempting email sign in for:', credentials.email);
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+        
+        if (error) {
+          console.error('Sign in error:', error);
+          throw error;
         }
-      });
-      if (error) throw error;
-    } else if (provider === 'email' && credentials) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
-      if (error) throw error;
+        
+        console.log('Sign in successful:', data.user?.email);
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      throw error instanceof AuthError ? error : new Error('Authentication failed');
     }
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
   };
 
   const value = {
