@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Task } from '../types/task';
 import { Settings, AIModel } from './Settings';
-import { FiSettings } from 'react-icons/fi';
+import { FiSettings, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 export function TaskView() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -9,11 +9,10 @@ export function TaskView() {
     return savedTasks ? JSON.parse(savedTasks) : [];
   });
   const [newTask, setNewTask] = useState('');
-  const [showQuestion, setShowQuestion] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
-  const [recommendations, setRecommendations] = useState<string[]>([]);
-  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [showQuestionInput, setShowQuestionInput] = useState<Record<string, boolean>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [aiModel, setAIModel] = useState<AIModel>(() => {
     const savedModel = localStorage.getItem('aiModel');
@@ -32,17 +31,19 @@ export function TaskView() {
     e.preventDefault();
     if (!newTask.trim()) return;
 
+    const taskId = Date.now().toString();
     const task: Task = {
-      id: Date.now().toString(),
+      id: taskId,
       title: newTask,
       completed: false,
       createdAt: new Date(),
+      recommendations: []
     };
 
     setTasks([...tasks, task]);
     setNewTask('');
 
-    // Automatically get AI recommendations
+    // Get recommendations in the background
     try {
       const response = await fetch('/api/recommendations', {
         method: 'POST',
@@ -52,14 +53,20 @@ export function TaskView() {
         body: JSON.stringify({ task: newTask, model: aiModel }),
       });
       const data = await response.json();
-      setRecommendations(data.recommendations);
+      
+      setTasks(currentTasks => 
+        currentTasks.map(t => 
+          t.id === taskId 
+            ? { ...t, recommendations: data.recommendations } 
+            : t
+        )
+      );
     } catch (error) {
       console.error('Error getting recommendations:', error);
     }
   };
 
-  const handleAskQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAskQuestion = async (taskId: string) => {
     if (!question.trim()) return;
 
     try {
@@ -70,14 +77,14 @@ export function TaskView() {
         },
         body: JSON.stringify({ 
           question,
-          tasks: tasks.map(t => t.title),
+          tasks: [tasks.find(t => t.id === taskId)?.title || ''],
           model: aiModel
         }),
       });
       const data = await response.json();
-      setAnswer(data.answer);
+      setAnswers(prev => ({ ...prev, [taskId]: data.answer }));
       setQuestion('');
-      setShowQuestion(false);
+      setShowQuestionInput(prev => ({ ...prev, [taskId]: false }));
     } catch (error) {
       console.error('Error asking question:', error);
     }
@@ -111,70 +118,74 @@ export function TaskView() {
         />
       </form>
 
-      <div className="space-y-4 mb-6">
-        {tasks.map(task => (
-          <div
-            key={task.id}
-            className="flex items-center p-3 bg-white rounded-lg shadow-sm"
-          >
-            <input
-              type="checkbox"
-              checked={task.completed}
-              onChange={() => toggleTaskCompletion(task.id)}
-              className="mr-3"
-            />
-            <span className={task.completed ? 'line-through text-gray-500' : ''}>
-              {task.title}
-            </span>
-          </div>
-        ))}
-      </div>
-
       <div className="space-y-4">
-        {recommendations.length > 0 && (
-          <div>
-            <button
-              onClick={() => setShowRecommendations(!showRecommendations)}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              {recommendations.length} recommendations
-            </button>
-            {showRecommendations && (
-              <div className="mt-2 p-4 bg-gray-50 rounded-lg">
-                <ul className="list-disc pl-5 space-y-2">
-                  {recommendations.map((rec, index) => (
+        {tasks.map(task => (
+          <div key={task.id} className="bg-white rounded-lg shadow-sm">
+            <div className="flex items-center p-3">
+              <input
+                type="checkbox"
+                checked={task.completed}
+                onChange={() => toggleTaskCompletion(task.id)}
+                className="mr-3"
+              />
+              <span className={task.completed ? 'line-through text-gray-500' : ''}>
+                {task.title}
+              </span>
+              {task.recommendations && task.recommendations.length > 0 && (
+                <button
+                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                  className="ml-auto flex items-center text-blue-600 hover:text-blue-700"
+                >
+                  {task.recommendations.length} recommendations
+                  {expandedTaskId === task.id ? (
+                    <FiChevronUp className="ml-1" />
+                  ) : (
+                    <FiChevronDown className="ml-1" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {expandedTaskId === task.id && (
+              <div className="p-3 border-t border-gray-100">
+                <ul className="list-disc pl-5 space-y-2 mb-4">
+                  {task.recommendations?.map((rec, index) => (
                     <li key={index}>{rec}</li>
                   ))}
                 </ul>
+
+                {!showQuestionInput[task.id] ? (
+                  <button
+                    onClick={() => setShowQuestionInput(prev => ({ ...prev, [task.id]: true }))}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    Ask a Question
+                  </button>
+                ) : (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      placeholder="Ask a question about this task..."
+                      className="w-full p-2 border border-gray-300 rounded-md mb-2"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAskQuestion(task.id);
+                        }
+                      }}
+                    />
+                    {answers[task.id] && (
+                      <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                        {answers[task.id]}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-
-        <div>
-          <button
-            onClick={() => setShowQuestion(!showQuestion)}
-            className="text-blue-600 hover:text-blue-700"
-          >
-            Ask Question
-          </button>
-          {showQuestion && (
-            <form onSubmit={handleAskQuestion} className="mt-2">
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask a question about your tasks..."
-                className="w-full p-2 border border-gray-300 rounded-md"
-              />
-            </form>
-          )}
-          {answer && (
-            <div className="mt-2 p-4 bg-gray-50 rounded-lg">
-              {answer}
-            </div>
-          )}
-        </div>
+        ))}
       </div>
 
       <Settings
