@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { Task } from '../types/task';
 import { Settings, AIModel } from './Settings';
 import { FiSettings } from 'react-icons/fi';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true
+});
 
 export function TaskView() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -45,19 +51,29 @@ export function TaskView() {
 
     // Get recommendations in the background
     try {
-      const response = await fetch('/api/recommendations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ task: newTask, model: aiModel }),
+      const completion = await openai.chat.completions.create({
+        model: aiModel,
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful task management assistant. Provide 3-5 specific, actionable recommendations for completing the given task. Each recommendation should be clear and concise."
+          },
+          {
+            role: "user",
+            content: `Please provide recommendations for this task: ${newTask}`
+          }
+        ]
       });
-      const data = await response.json();
       
+      const recommendations = completion.choices[0].message.content
+        ?.split('\n')
+        .filter(line => line.trim())
+        .map(line => line.replace(/^\d+\.\s*/, '')) || [];
+
       setTasks(currentTasks => 
         currentTasks.map(t => 
           t.id === taskId 
-            ? { ...t, recommendations: data.recommendations } 
+            ? { ...t, recommendations } 
             : t
         )
       );
@@ -70,19 +86,22 @@ export function TaskView() {
     if (!question.trim()) return;
 
     try {
-      const response = await fetch('/api/ask', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          question,
-          tasks: [tasks.find(t => t.id === taskId)?.title || ''],
-          model: aiModel
-        }),
+      const completion = await openai.chat.completions.create({
+        model: aiModel,
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful task management assistant. Provide clear, practical answers to questions about the task."
+          },
+          {
+            role: "user",
+            content: `Regarding the task "${tasks.find(t => t.id === taskId)?.title}", ${question}`
+          }
+        ]
       });
-      const data = await response.json();
-      setAnswers(prev => ({ ...prev, [taskId]: data.answer }));
+      
+      const answer = completion.choices[0].message.content || '';
+      setAnswers(prev => ({ ...prev, [taskId]: answer }));
       setQuestion('');
       setShowQuestionInput(prev => ({ ...prev, [taskId]: false }));
     } catch (error) {
