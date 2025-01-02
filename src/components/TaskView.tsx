@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Task } from '../types/task';
 import { Settings, AIModel } from './Settings';
-import { FiSettings } from 'react-icons/fi';
+import { FiSettings, FiTrash2, FiMenu } from 'react-icons/fi';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -24,6 +24,13 @@ export function TaskView() {
     const savedModel = localStorage.getItem('aiModel');
     return (savedModel as AIModel) || 'gpt-4';
   });
+  const [draggedTask, setDraggedTask] = useState<string | null>(null);
+  const [editingRecommendation, setEditingRecommendation] = useState<{taskId: string, index: number} | null>(null);
+  const [editedText, setEditedText] = useState('');
+  const [darkMode, setDarkMode] = useState(() => {
+    const savedMode = localStorage.getItem('darkMode');
+    return savedMode ? JSON.parse(savedMode) : false;
+  });
 
   useEffect(() => {
     localStorage.setItem('tasks', JSON.stringify(tasks));
@@ -32,6 +39,15 @@ export function TaskView() {
   useEffect(() => {
     localStorage.setItem('aiModel', aiModel);
   }, [aiModel]);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,101 +131,212 @@ export function TaskView() {
     ));
   };
 
+  const deleteTask = (taskId: string) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+
+  const handleDragStart = (taskId: string) => {
+    setDraggedTask(taskId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (targetTaskId: string) => {
+    if (!draggedTask || draggedTask === targetTaskId) return;
+
+    const draggedIndex = tasks.findIndex(t => t.id === draggedTask);
+    const targetIndex = tasks.findIndex(t => t.id === targetTaskId);
+    
+    const newTasks = [...tasks];
+    const [draggedItem] = newTasks.splice(draggedIndex, 1);
+    newTasks.splice(targetIndex, 0, draggedItem);
+    
+    setTasks(newTasks);
+    setDraggedTask(null);
+  };
+
+  const handleEditRecommendation = (taskId: string, index: number, text: string) => {
+    setEditingRecommendation({ taskId, index });
+    setEditedText(text);
+  };
+
+  const handleSaveRecommendation = () => {
+    if (!editingRecommendation) return;
+
+    setTasks(tasks.map(task => {
+      if (task.id === editingRecommendation.taskId && task.recommendations) {
+        const newRecommendations = [...task.recommendations];
+        newRecommendations[editingRecommendation.index] = editedText;
+        return { ...task, recommendations: newRecommendations };
+      }
+      return task;
+    }));
+
+    setEditingRecommendation(null);
+    setEditedText('');
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Smart To-Do List</h1>
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="p-2 hover:bg-gray-100 rounded-full"
-        >
-          <FiSettings className="w-6 h-6" />
-        </button>
-      </div>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-white' : 'bg-white'}`}>
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Smart To-Do List</h1>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className={`p-2 rounded-full ${
+              darkMode 
+                ? 'hover:bg-gray-800' 
+                : 'hover:bg-gray-100'
+            }`}
+          >
+            <FiSettings className="w-6 h-6" />
+          </button>
+        </div>
 
-      <form onSubmit={handleAddTask} className="mb-6">
-        <input
-          type="text"
-          value={newTask}
-          onChange={(e) => setNewTask(e.target.value)}
-          placeholder="Add a new task..."
-          className="w-full p-4 text-lg border border-gray-200 rounded-lg shadow-sm"
-        />
-      </form>
+        <form onSubmit={handleAddTask} className="mb-6">
+          <input
+            type="text"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            placeholder="Add a new task..."
+            className={`w-full p-4 text-lg border rounded-lg shadow-sm ${
+              darkMode 
+                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
+                : 'border-gray-200 placeholder-gray-500'
+            }`}
+          />
+        </form>
 
-      <div className="space-y-4">
-        {tasks.map(task => (
-          <div key={task.id} className="bg-white rounded-lg shadow-sm">
-            <div className="flex items-center p-4">
-              <input
-                type="checkbox"
-                checked={task.completed}
-                onChange={() => toggleTaskCompletion(task.id)}
-                className="w-5 h-5 mr-4"
-              />
-              <div className="flex-grow">
-                <span className={task.completed ? 'line-through text-gray-500' : ''}>
-                  {task.title}
-                </span>
-                <button
-                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                  className="ml-2 text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm"
+        <div className="space-y-4">
+          {tasks.map(task => (
+            <div 
+              key={task.id} 
+              className={`rounded-lg shadow-sm ${
+                darkMode ? 'bg-gray-800' : 'bg-white'
+              }`}
+              draggable
+              onDragStart={() => handleDragStart(task.id)}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(task.id)}
+            >
+              <div className="flex items-center p-4">
+                <div 
+                  className="cursor-grab mr-2 text-gray-400 hover:text-gray-600"
+                  onMouseDown={(e) => e.preventDefault()}
                 >
-                  {(task.recommendations || []).length > 0 
-                    ? `${(task.recommendations || []).length} recommendations` 
-                    : 'Loading...'}
-                </button>
-              </div>
-            </div>
-
-            {expandedTaskId === task.id && (
-              <div className="p-4 border-t border-gray-100">
-                <ul className="list-disc pl-5 space-y-2 mb-4">
-                  {task.recommendations?.map((rec, index) => (
-                    <li key={index}>{rec}</li>
-                  ))}
-                </ul>
-
-                {!showQuestionInput[task.id] ? (
-                  <button
-                    onClick={() => setShowQuestionInput(prev => ({ ...prev, [task.id]: true }))}
-                    className="text-blue-600 hover:text-blue-700"
-                  >
-                    Ask a Question
-                  </button>
-                ) : (
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      value={question}
-                      onChange={(e) => setQuestion(e.target.value)}
-                      placeholder="Ask a question about this task..."
-                      className="w-full p-2 border border-gray-300 rounded-md mb-2"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAskQuestion(task.id);
-                        }
-                      }}
-                    />
-                    {answers[task.id] && (
-                      <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                        {answers[task.id]}
-                      </div>
-                    )}
+                  <FiMenu className="w-5 h-5" />
+                </div>
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={() => toggleTaskCompletion(task.id)}
+                  className="w-5 h-5 mr-4"
+                />
+                <div className="flex-grow flex items-center justify-between">
+                  <div>
+                    <span className={task.completed ? 'line-through text-gray-500' : ''}>
+                      {task.title}
+                    </span>
+                    <button
+                      onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                      className="ml-2 text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm"
+                    >
+                      {(task.recommendations || []).length > 0 
+                        ? `${(task.recommendations || []).length} recommendations` 
+                        : 'Loading...'}
+                    </button>
                   </div>
-                )}
+                  {task.completed && (
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="text-red-600 hover:text-red-700 ml-4"
+                      title="Delete task"
+                    >
+                      <FiTrash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
 
-      <Settings
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        currentModel={aiModel}
-        onModelChange={setAIModel}
-      />
+              {expandedTaskId === task.id && (
+                <div className="p-4 border-t border-gray-100">
+                  <ul className="list-disc pl-5 space-y-2 mb-4">
+                    {task.recommendations?.map((rec, index) => (
+                      <li key={index}>
+                        {editingRecommendation?.taskId === task.id && 
+                         editingRecommendation?.index === index ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editedText}
+                              onChange={(e) => setEditedText(e.target.value)}
+                              className="flex-grow p-1 border border-gray-300 rounded"
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSaveRecommendation}
+                              className="text-green-600 hover:text-green-700 text-sm"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => handleEditRecommendation(task.id, index, rec)}
+                            className="cursor-pointer hover:text-blue-600"
+                          >
+                            {rec}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {!showQuestionInput[task.id] ? (
+                    <button
+                      onClick={() => setShowQuestionInput(prev => ({ ...prev, [task.id]: true }))}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      Ask a Question
+                    </button>
+                  ) : (
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        placeholder="Ask a question about this task..."
+                        className="w-full p-2 border border-gray-300 rounded-md mb-2"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAskQuestion(task.id);
+                          }
+                        }}
+                      />
+                      {answers[task.id] && (
+                        <div className="mt-2 p-3 bg-gray-50 rounded-md">
+                          {answers[task.id]}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Settings
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          currentModel={aiModel}
+          onModelChange={setAIModel}
+          darkMode={darkMode}
+          onDarkModeChange={setDarkMode}
+        />
+      </div>
     </div>
   );
 } 
