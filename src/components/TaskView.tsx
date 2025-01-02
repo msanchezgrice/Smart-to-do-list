@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Task } from '../types/task';
 import { Settings, AIModel } from './Settings';
-import { FiSettings, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiSettings } from 'react-icons/fi';
 
 export function TaskView() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -114,40 +114,37 @@ export function TaskView() {
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           placeholder="Add a new task..."
-          className="w-full p-2 border border-gray-300 rounded-md mb-2"
+          className="w-full p-4 text-lg border border-gray-200 rounded-lg shadow-sm"
         />
       </form>
 
       <div className="space-y-4">
         {tasks.map(task => (
           <div key={task.id} className="bg-white rounded-lg shadow-sm">
-            <div className="flex items-center p-3">
+            <div className="flex items-center p-4">
               <input
                 type="checkbox"
                 checked={task.completed}
                 onChange={() => toggleTaskCompletion(task.id)}
-                className="mr-3"
+                className="w-5 h-5 mr-4"
               />
-              <span className={task.completed ? 'line-through text-gray-500' : ''}>
-                {task.title}
-              </span>
-              {task.recommendations && task.recommendations.length > 0 && (
-                <button
-                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                  className="ml-auto flex items-center text-blue-600 hover:text-blue-700"
-                >
-                  {task.recommendations.length} recommendations
-                  {expandedTaskId === task.id ? (
-                    <FiChevronUp className="ml-1" />
-                  ) : (
-                    <FiChevronDown className="ml-1" />
-                  )}
-                </button>
-              )}
+              <div className="flex-grow">
+                <span className={task.completed ? 'line-through text-gray-500' : ''}>
+                  {task.title}
+                </span>
+                {task.recommendations && task.recommendations.length > 0 && (
+                  <button
+                    onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                    className="ml-2 text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm"
+                  >
+                    recommendations
+                  </button>
+                )}
+              </div>
             </div>
 
             {expandedTaskId === task.id && (
-              <div className="p-3 border-t border-gray-100">
+              <div className="p-4 border-t border-gray-100">
                 <ul className="list-disc pl-5 space-y-2 mb-4">
                   {task.recommendations?.map((rec, index) => (
                     <li key={index}>{rec}</li>
