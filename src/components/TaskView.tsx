@@ -132,14 +132,14 @@ export function TaskView() {
                 <span className={task.completed ? 'line-through text-gray-500' : ''}>
                   {task.title}
                 </span>
-                {task.recommendations && task.recommendations.length > 0 && (
-                  <button
-                    onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                    className="ml-2 text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm"
-                  >
-                    recommendations
-                  </button>
-                )}
+                <button
+                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                  className="ml-2 text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm"
+                >
+                  {(task.recommendations || []).length > 0 
+                    ? `${(task.recommendations || []).length} recommendations` 
+                    : 'Loading...'}
+                </button>
               </div>
             </div>
 
