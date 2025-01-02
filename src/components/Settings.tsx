@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiMoon, FiSun } from 'react-icons/fi';
 
 export type AIModel = 'gpt-4' | 'gpt-4-0125-preview' | 'gpt-4-1106-preview';
@@ -21,6 +21,14 @@ export function Settings({
   onDarkModeChange 
 }: Props) {
   const [selectedModel, setSelectedModel] = useState<AIModel>(currentModel);
+  const [prompt, setPrompt] = useState(() => {
+    const savedPrompt = localStorage.getItem('aiPrompt');
+    return savedPrompt || "You are a helpful task management assistant. Provide 3-5 specific, actionable recommendations for completing the given task. Each recommendation should be clear and concise.";
+  });
+
+  useEffect(() => {
+    localStorage.setItem('aiPrompt', prompt);
+  }, [prompt]);
 
   const handleSave = () => {
     onModelChange(selectedModel);
@@ -52,6 +60,22 @@ export function Settings({
               <option value="gpt-4-0125-preview">GPT-4 Turbo (January 2024)</option>
               <option value="gpt-4-1106-preview">GPT-4 Turbo (November 2023)</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              AI Prompt
+            </label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              className={`w-full p-2 border rounded-md min-h-[100px] ${
+                darkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'border-gray-300'
+              }`}
+              placeholder="Enter the prompt for generating task recommendations..."
+            />
           </div>
 
           <div>

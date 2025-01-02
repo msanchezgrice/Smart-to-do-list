@@ -24,9 +24,7 @@ export function TaskView() {
     const savedModel = localStorage.getItem('aiModel');
     return (savedModel as AIModel) || 'gpt-4';
   });
-  const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [editingRecommendation, setEditingRecommendation] = useState<{taskId: string, index: number} | null>(null);
-  const [editedText, setEditedText] = useState('');
+  const [editingRecommendations, setEditingRecommendations] = useState<{taskId: string, text: string} | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     const savedMode = localStorage.getItem('darkMode');
     return savedMode ? JSON.parse(savedMode) : false;
@@ -67,12 +65,14 @@ export function TaskView() {
 
     // Get recommendations in the background
     try {
+      const savedPrompt = localStorage.getItem('aiPrompt') || "You are a helpful task management assistant. Provide 3-5 specific, actionable recommendations for completing the given task. Each recommendation should be clear and concise.";
+      
       const completion = await openai.chat.completions.create({
         model: aiModel,
         messages: [
           {
             role: "system",
-            content: "You are a helpful task management assistant. Provide 3-5 specific, actionable recommendations for completing the given task. Each recommendation should be clear and concise."
+            content: savedPrompt
           },
           {
             role: "user",
@@ -135,18 +135,50 @@ export function TaskView() {
     setTasks(tasks.filter(task => task.id !== taskId));
   };
 
-  const handleDragStart = (taskId: string) => {
-    setDraggedTask(taskId);
+  const handleEditRecommendations = (taskId: string, recommendations: string[]) => {
+    setEditingRecommendations({ 
+      taskId, 
+      text: recommendations.join('\n') 
+    });
+  };
+
+  const handleSaveRecommendations = () => {
+    if (!editingRecommendations) return;
+
+    setTasks(tasks.map(task => {
+      if (task.id === editingRecommendations.taskId) {
+        const newRecommendations = editingRecommendations.text
+          .split('\n')
+          .filter(line => line.trim());
+        return { ...task, recommendations: newRecommendations };
+      }
+      return task;
+    }));
+
+    setEditingRecommendations(null);
+  };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.currentTarget.classList.add('bg-gray-100');
   };
 
-  const handleDrop = (targetTaskId: string) => {
-    if (!draggedTask || draggedTask === targetTaskId) return;
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('bg-gray-100');
+  };
 
-    const draggedIndex = tasks.findIndex(t => t.id === draggedTask);
+  const handleDrop = (e: React.DragEvent, targetTaskId: string) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('bg-gray-100');
+    
+    const draggedTaskId = e.dataTransfer.getData('text/plain');
+    if (!draggedTaskId || draggedTaskId === targetTaskId) return;
+
+    const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
     const targetIndex = tasks.findIndex(t => t.id === targetTaskId);
     
     const newTasks = [...tasks];
@@ -154,28 +186,6 @@ export function TaskView() {
     newTasks.splice(targetIndex, 0, draggedItem);
     
     setTasks(newTasks);
-    setDraggedTask(null);
-  };
-
-  const handleEditRecommendation = (taskId: string, index: number, text: string) => {
-    setEditingRecommendation({ taskId, index });
-    setEditedText(text);
-  };
-
-  const handleSaveRecommendation = () => {
-    if (!editingRecommendation) return;
-
-    setTasks(tasks.map(task => {
-      if (task.id === editingRecommendation.taskId && task.recommendations) {
-        const newRecommendations = [...task.recommendations];
-        newRecommendations[editingRecommendation.index] = editedText;
-        return { ...task, recommendations: newRecommendations };
-      }
-      return task;
-    }));
-
-    setEditingRecommendation(null);
-    setEditedText('');
   };
 
   return (
@@ -217,14 +227,16 @@ export function TaskView() {
                 darkMode ? 'bg-gray-800' : 'bg-white'
               }`}
               draggable
-              onDragStart={() => handleDragStart(task.id)}
+              onDragStart={(e) => handleDragStart(e, task.id)}
               onDragOver={handleDragOver}
-              onDrop={() => handleDrop(task.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, task.id)}
             >
               <div className="flex items-center p-4">
                 <div 
-                  className="cursor-grab mr-2 text-gray-400 hover:text-gray-600"
-                  onMouseDown={(e) => e.preventDefault()}
+                  className={`cursor-grab mr-2 ${darkMode ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
                 >
                   <FiMenu className="w-5 h-5" />
                 </div>
@@ -261,43 +273,64 @@ export function TaskView() {
               </div>
 
               {expandedTaskId === task.id && (
-                <div className="p-4 border-t border-gray-100">
-                  <ul className="list-disc pl-5 space-y-2 mb-4">
-                    {task.recommendations?.map((rec, index) => (
-                      <li key={index}>
-                        {editingRecommendation?.taskId === task.id && 
-                         editingRecommendation?.index === index ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={editedText}
-                              onChange={(e) => setEditedText(e.target.value)}
-                              className="flex-grow p-1 border border-gray-300 rounded"
-                              autoFocus
-                            />
-                            <button
-                              onClick={handleSaveRecommendation}
-                              className="text-green-600 hover:text-green-700 text-sm"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        ) : (
-                          <span
-                            onClick={() => handleEditRecommendation(task.id, index, rec)}
-                            className="cursor-pointer hover:text-blue-600"
-                          >
-                            {rec}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                <div className={`p-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                  {editingRecommendations?.taskId === task.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editingRecommendations.text}
+                        onChange={(e) => setEditingRecommendations({
+                          ...editingRecommendations,
+                          text: e.target.value
+                        })}
+                        className={`w-full p-3 min-h-[150px] rounded-md border ${
+                          darkMode 
+                            ? 'bg-gray-800 text-white border-gray-700' 
+                            : 'bg-white text-gray-900 border-gray-200'
+                        }`}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingRecommendations(null)}
+                          className={`px-3 py-1 ${
+                            darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-600 hover:text-gray-500'
+                          }`}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveRecommendations}
+                          className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => handleEditRecommendations(task.id, task.recommendations || [])}
+                      className={`cursor-pointer p-2 rounded-md ${
+                        darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        {task.recommendations?.map((rec, index) => (
+                          <p key={index} className="font-normal" 
+                             dangerouslySetInnerHTML={{ 
+                               __html: rec
+                                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                 .replace(/\n/g, '<br />') 
+                             }} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {!showQuestionInput[task.id] ? (
                     <button
                       onClick={() => setShowQuestionInput(prev => ({ ...prev, [task.id]: true }))}
-                      className="text-blue-600 hover:text-blue-700"
+                      className="mt-4 text-blue-600 hover:text-blue-700"
                     >
                       Ask a Question
                     </button>
